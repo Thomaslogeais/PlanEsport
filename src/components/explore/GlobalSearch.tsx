@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { Search, Users, Trophy, Calendar } from "lucide-react";
 
 type SearchResult = {
   type: "team" | "competition" | "tournament";
@@ -17,7 +18,7 @@ type SearchResponse = {
 };
 
 const TYPE_LABELS = { team: "Équipes", competition: "Compétitions", tournament: "Tournois" };
-const TYPE_ICONS  = { team: "👥", competition: "🏆", tournament: "📅" };
+const TYPE_ICONS  = { team: Users, competition: Trophy, tournament: Calendar };
 
 function ResultItem({ item, onSelect }: { item: SearchResult; onSelect: () => void }) {
   const initials = item.name.slice(0, 2).toUpperCase();
@@ -100,7 +101,7 @@ export default function GlobalSearch({ placeholder = "Rechercher une équipe, co
   return (
     <div ref={containerRef} className="relative w-full">
       <div className="relative">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]">🔍</span>
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--muted)" }} />
         <input
           type="text"
           value={query}
@@ -109,7 +110,8 @@ export default function GlobalSearch({ placeholder = "Rechercher une équipe, co
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           autoFocus={autoFocus}
-          className="w-full pl-10 pr-4 py-3 rounded-lg bg-[var(--surface)] border border-[var(--border)] text-white placeholder-[var(--muted)] text-sm focus:outline-none focus:border-[var(--primary)] transition-colors"
+          className="w-full pl-9 pr-4 py-3 rounded-xl text-sm focus:outline-none transition-colors"
+          style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", color: "var(--text)" }}
         />
         {loading && (
           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--muted)] animate-pulse">...</span>
@@ -127,8 +129,10 @@ export default function GlobalSearch({ placeholder = "Rechercher une équipe, co
                 if (!items.length) return null;
                 return (
                   <div key={type}>
-                    <p className="px-4 py-1.5 text-xs font-semibold text-[var(--muted)] bg-zinc-900/50 sticky top-0">
-                      {TYPE_ICONS[type]} {TYPE_LABELS[type]}
+                    <p className="px-4 py-1.5 text-xs font-semibold sticky top-0 flex items-center gap-1.5"
+                      style={{ color: "var(--muted)", backgroundColor: "var(--surface-2)" }}>
+                      {(() => { const Icon = TYPE_ICONS[type]; return <Icon size={12} />; })()}
+                      {TYPE_LABELS[type]}
                     </p>
                     {items.map((item) => <ResultItem key={item.id} item={item} onSelect={handleSelect} />)}
                   </div>

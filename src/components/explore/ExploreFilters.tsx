@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { ChevronDown, X, Gamepad2, Trophy, Users, Calendar, Zap } from "lucide-react";
 
 type FacetItem  = { slug?: string; value?: string; id?: string; name: string; count: number; label?: string };
 type FacetsData = {
@@ -14,11 +15,110 @@ type FacetsData = {
   periods: { value: string; label: string }[];
 };
 
-const selectCls = "bg-[var(--surface)] border border-[var(--border)] text-white text-sm rounded px-3 py-2 focus:outline-none focus:border-[var(--primary)] cursor-pointer min-w-[140px]";
+// ── Pill simple ──────────────────────────────────────────────────────────────
+function Pill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap"
+      style={{
+        backgroundColor: active ? "var(--primary)" : "var(--surface-2)",
+        color: active ? "#fff" : "var(--muted-light)",
+        border: `1px solid ${active ? "var(--primary)" : "var(--border)"}`,
+      }}
+    >
+      {label}
+    </button>
+  );
+}
 
+// ── Dropdown avec pills internes ─────────────────────────────────────────────
+function FilterDropdown({
+  icon: Icon,
+  label,
+  value,
+  items,
+  onSelect,
+  onClear,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: string;
+  items: { key: string; name: string }[];
+  onSelect: (v: string) => void;
+  onClear: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const active = !!value;
+  const selected = items.find((i) => i.key === value);
+
+  // Ferme au clic extérieur
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap"
+        style={{
+          backgroundColor: active ? "var(--primary)" : "var(--surface-2)",
+          color: active ? "#fff" : "var(--muted-light)",
+          border: `1px solid ${active ? "var(--primary)" : "var(--border)"}`,
+        }}
+      >
+        <Icon size={11} />
+        {active ? selected?.name ?? label : label}
+        {active ? (
+          <span
+            onClick={(e) => { e.stopPropagation(); onClear(); setOpen(false); }}
+            className="ml-0.5 rounded-full p-0.5 transition-colors"
+            style={{ color: active ? "rgba(255,255,255,0.7)" : "var(--muted)" }}
+          >
+            <X size={10} />
+          </span>
+        ) : (
+          <ChevronDown size={10} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+        )}
+      </button>
+
+      {open && (
+        <div
+          className="absolute top-full mt-2 left-0 z-50 rounded-xl p-3 min-w-[200px] max-w-[280px] max-h-[260px] overflow-y-auto shadow-lg"
+          style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}
+        >
+          <div className="flex flex-wrap gap-1.5">
+            {items.map((item) => (
+              <button
+                key={item.key}
+                onClick={() => { onSelect(item.key); setOpen(false); }}
+                className="px-2.5 py-1 rounded-full text-xs transition-all"
+                style={{
+                  backgroundColor: value === item.key ? "var(--primary)" : "var(--surface-2)",
+                  color: value === item.key ? "#fff" : "var(--muted-light)",
+                  border: `1px solid ${value === item.key ? "var(--primary)" : "var(--border)"}`,
+                }}
+              >
+                {item.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Component principal ───────────────────────────────────────────────────────
 export default function ExploreFilters() {
-  const router     = useRouter();
-  const pathname   = usePathname();
+  const router       = useRouter();
+  const pathname     = usePathname();
   const searchParams = useSearchParams();
 
   const game        = searchParams.get("game")        ?? "";
@@ -31,7 +131,6 @@ export default function ExploreFilters() {
   const [facets, setFacets] = useState<FacetsData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Recharger les facets quand les filtres actifs changent
   useEffect(() => {
     setLoading(true);
     const params = new URLSearchParams();
@@ -49,115 +148,134 @@ export default function ExploreFilters() {
       .finally(() => setLoading(false));
   }, [game, competition, team, tournament, status, period]);
 
-  // Mettre à jour un filtre dans l'URL
   const setFilter = useCallback((key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString());
-    if (value) {
-      params.set(key, value);
-    } else {
-      params.delete(key);
-    }
-    params.delete("offset"); // reset pagination
+    if (value) params.set(key, value); else params.delete(key);
+    params.delete("offset");
     router.push(`${pathname}?${params.toString()}`);
   }, [router, pathname, searchParams]);
 
   const reset = () => router.push(pathname);
-
   const hasFilters = !!(game || competition || team || tournament || status || period);
 
+  // ── Skeleton ──
   if (loading && !facets) {
     return (
-      <div className="flex flex-wrap gap-3 mb-6">
-        {[1,2,3,4].map((i) => <div key={i} className="h-9 w-36 rounded bg-[var(--surface)] border border-[var(--border)] animate-pulse" />)}
+      <div className="flex flex-wrap gap-2 mb-6">
+        {[80, 100, 70, 90, 80].map((w, i) => (
+          <div key={i} className="h-7 rounded-full animate-pulse" style={{ width: w, backgroundColor: "var(--surface-2)", border: "1px solid var(--border)" }} />
+        ))}
       </div>
     );
   }
-
   if (!facets) return null;
 
+  const statusColors: Record<string, string> = {
+    running:     "#ef4444",
+    not_started: "#7c3aed",
+    finished:    "#6b7280",
+    canceled:    "#f59e0b",
+  };
+
   return (
-    <div className="mb-6">
-      <div className="flex flex-wrap items-center gap-3">
-        {/* Jeu — dynamique depuis la BDD */}
-        <select value={game} onChange={(e) => setFilter("game", e.target.value)} className={selectCls}>
-          <option value="">🎮 Tous les jeux</option>
-          {facets.games.map((g) => (
-            <option key={g.slug} value={g.slug}>
-              {g.name} {g.count > 0 ? `(${g.count})` : ""}
-            </option>
-          ))}
-        </select>
+    <div className="mb-6 space-y-3">
+      {/* ── Ligne 1 : Jeux + Statut + Période ─────────────────────────────── */}
+      <div className="flex flex-wrap items-center gap-2">
 
-        {/* Compétition — filtrée par jeu */}
-        {facets.competitions.length > 0 && (
-          <select value={competition} onChange={(e) => setFilter("competition", e.target.value)} className={selectCls}>
-            <option value="">🏆 Toutes les compétitions</option>
-            {facets.competitions.map((c) => (
-              <option key={c.id} value={c.slug}>
-                {c.name} {c.count > 0 ? `(${c.count})` : ""}
-              </option>
+        {/* Jeux — pills directes */}
+        {facets.games.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-xs mr-1" style={{ color: "var(--muted)" }}>Jeu</span>
+            {facets.games.map((g) => (
+              <Pill key={g.slug} label={g.name} active={game === g.slug}
+                onClick={() => setFilter("game", game === g.slug ? "" : g.slug)} />
             ))}
-          </select>
+          </div>
         )}
 
-        {/* Équipe — top 20, filtrée par jeu + compétition */}
-        {facets.teams.length > 0 && (
-          <select value={team} onChange={(e) => setFilter("team", e.target.value)} className={selectCls}>
-            <option value="">👥 Toutes les équipes</option>
-            {facets.teams.map((t) => (
-              <option key={t.id} value={t.slug}>
-                {t.name} {t.count > 0 ? `(${t.count})` : ""}
-              </option>
-            ))}
-          </select>
-        )}
+        <div className="w-px h-5 mx-1" style={{ backgroundColor: "var(--border)" }} />
 
-        {/* Tournoi — top 20, filtré par jeu + compétition */}
-        {competition && facets.tournaments.length > 0 && (
-          <select value={tournament} onChange={(e) => setFilter("tournament", e.target.value)} className={selectCls}>
-            <option value="">📅 Tous les tournois</option>
-            {facets.tournaments.map((t) => (
-              <option key={t.id} value={t.slug}>
-                {t.name} {t.count > 0 ? `(${t.count})` : ""}
-              </option>
-            ))}
-          </select>
-        )}
-
-        {/* Statut */}
-        <select value={status} onChange={(e) => setFilter("status", e.target.value)} className={selectCls}>
-          <option value="">⚡ Tous les statuts</option>
+        {/* Statut — pills avec couleur */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-xs mr-1" style={{ color: "var(--muted)" }}>Statut</span>
           {facets.statuses.map((s) => (
-            <option key={s.value} value={s.value}>
-              {s.label} {s.count > 0 ? `(${s.count})` : ""}
-            </option>
+            <button key={s.value} onClick={() => setFilter("status", status === s.value ? "" : s.value)}
+              className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap"
+              style={{
+                backgroundColor: status === s.value ? (statusColors[s.value] ?? "var(--primary)") : "var(--surface-2)",
+                color: status === s.value ? "#fff" : "var(--muted-light)",
+                border: `1px solid ${status === s.value ? (statusColors[s.value] ?? "var(--primary)") : "var(--border)"}`,
+              }}>
+              {s.label}
+            </button>
           ))}
-        </select>
+        </div>
 
-        {/* Période — statique (valeurs fixes) */}
-        <select value={period} onChange={(e) => setFilter("period", e.target.value)} className={selectCls}>
-          <option value="">📆 Toute période</option>
+        <div className="w-px h-5 mx-1" style={{ backgroundColor: "var(--border)" }} />
+
+        {/* Période — pills */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-xs mr-1" style={{ color: "var(--muted)" }}>Période</span>
           {facets.periods.map((p) => (
-            <option key={p.value} value={p.value}>{p.label}</option>
+            <Pill key={p.value} label={p.label} active={period === p.value}
+              onClick={() => setFilter("period", period === p.value ? "" : p.value)} />
           ))}
-        </select>
-
-        {hasFilters && (
-          <button onClick={reset} className="text-xs text-[var(--muted)] hover:text-white underline transition-colors">
-            Réinitialiser
-          </button>
-        )}
+        </div>
       </div>
 
-      {/* Filtres actifs affichés sous forme de badges */}
+      {/* ── Ligne 2 : Dropdowns pour listes longues ──────────────────────── */}
+      {(facets.competitions.length > 0 || facets.teams.length > 0) && (
+        <div className="flex flex-wrap items-center gap-2">
+          {facets.competitions.length > 0 && (
+            <FilterDropdown
+              icon={Trophy}
+              label="Compétition"
+              value={competition}
+              items={facets.competitions.map((c) => ({ key: c.slug, name: c.name }))}
+              onSelect={(v) => setFilter("competition", v)}
+              onClear={() => setFilter("competition", "")}
+            />
+          )}
+          {facets.teams.length > 0 && (
+            <FilterDropdown
+              icon={Users}
+              label="Équipe"
+              value={team}
+              items={facets.teams.map((t) => ({ key: t.slug, name: t.name }))}
+              onSelect={(v) => setFilter("team", v)}
+              onClear={() => setFilter("team", "")}
+            />
+          )}
+          {competition && facets.tournaments.length > 0 && (
+            <FilterDropdown
+              icon={Calendar}
+              label="Tournoi"
+              value={tournament}
+              items={facets.tournaments.map((t) => ({ key: t.slug, name: t.name }))}
+              onSelect={(v) => setFilter("tournament", v)}
+              onClear={() => setFilter("tournament", "")}
+            />
+          )}
+          {hasFilters && (
+            <button onClick={reset}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs transition-colors"
+              style={{ color: "var(--muted)", border: "1px solid var(--border)" }}>
+              <X size={10} />
+              Réinitialiser
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* ── Filtres actifs (badges) ───────────────────────────────────────── */}
       {hasFilters && (
-        <div className="flex flex-wrap gap-2 mt-3">
-          {game        && <ActiveBadge label={`Jeu: ${facets.games.find(g => g.slug === game)?.name ?? game}`} onRemove={() => setFilter("game", "")} />}
-          {competition && <ActiveBadge label={`Compétition: ${facets.competitions.find(c => c.slug === competition)?.name ?? competition}`} onRemove={() => { setFilter("competition", ""); }} />}
-          {team        && <ActiveBadge label={`Équipe: ${facets.teams.find(t => t.slug === team)?.name ?? team}`} onRemove={() => setFilter("team", "")} />}
-          {tournament  && <ActiveBadge label={`Tournoi: ${facets.tournaments.find(t => t.slug === tournament)?.name ?? tournament}`} onRemove={() => setFilter("tournament", "")} />}
-          {status      && <ActiveBadge label={`Statut: ${facets.statuses.find(s => s.value === status)?.label ?? status}`} onRemove={() => setFilter("status", "")} />}
-          {period      && <ActiveBadge label={`Période: ${facets.periods.find(p => p.value === period)?.label ?? period}`} onRemove={() => setFilter("period", "")} />}
+        <div className="flex flex-wrap gap-1.5 pt-1">
+          {game        && <ActiveBadge label={facets.games.find(g => g.slug === game)?.name ?? game} onRemove={() => setFilter("game", "")} />}
+          {competition && <ActiveBadge label={facets.competitions.find(c => c.slug === competition)?.name ?? competition} onRemove={() => setFilter("competition", "")} />}
+          {team        && <ActiveBadge label={facets.teams.find(t => t.slug === team)?.name ?? team} onRemove={() => setFilter("team", "")} />}
+          {tournament  && <ActiveBadge label={facets.tournaments.find(t => t.slug === tournament)?.name ?? tournament} onRemove={() => setFilter("tournament", "")} />}
+          {status      && <ActiveBadge label={facets.statuses.find(s => s.value === status)?.label ?? status} onRemove={() => setFilter("status", "")} />}
+          {period      && <ActiveBadge label={facets.periods.find(p => p.value === period)?.label ?? period} onRemove={() => setFilter("period", "")} />}
         </div>
       )}
     </div>
@@ -166,9 +284,12 @@ export default function ExploreFilters() {
 
 function ActiveBadge({ label, onRemove }: { label: string; onRemove: () => void }) {
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs bg-[var(--primary)]/20 text-[var(--primary)] border border-[var(--primary)]/30">
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
+      style={{ backgroundColor: "rgba(124,58,237,0.15)", color: "var(--primary)", border: "1px solid rgba(124,58,237,0.3)" }}>
       {label}
-      <button onClick={onRemove} className="hover:text-white transition-colors ml-1">✕</button>
+      <button onClick={onRemove} className="ml-0.5 transition-opacity hover:opacity-100 opacity-60">
+        <X size={10} />
+      </button>
     </span>
   );
 }

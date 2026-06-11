@@ -7,15 +7,16 @@ import { prisma } from "@/lib/db/prisma";
 import GlobalSearch from "@/components/explore/GlobalSearch";
 import MatchCard from "@/components/matches/MatchCard";
 import StatusBadge from "@/components/ui/StatusBadge";
+import { Compass, Calendar, Radio, Clock, Users, Trophy } from "lucide-react";
 
 // ─── Accès rapides ──────────────────────────────────────────────────────────
 const QUICK_LINKS = [
-  { label: "Explorer",       icon: "🔍", href: "/explore",                   desc: "Tous les matchs" },
-  { label: "Matchs du jour", icon: "📅", href: "/explore?period=today",       desc: "Aujourd'hui" },
-  { label: "Live",           icon: "🔴", href: "/explore?status=running",     desc: "En ce moment" },
-  { label: "À venir",        icon: "⏳", href: "/explore?status=not_started", desc: "Prochains matchs" },
-  { label: "Équipes",        icon: "👥", href: "/teams",                      desc: "Toutes les équipes" },
-  { label: "Tournois",       icon: "🏆", href: "/tournaments",                desc: "Toutes les compétitions" },
+  { label: "Explorer",       Icon: Compass,  href: "/explore",                   desc: "Tous les matchs" },
+  { label: "Matchs du jour", Icon: Calendar, href: "/explore?period=today",       desc: "Aujourd'hui" },
+  { label: "Live",           Icon: Radio,    href: "/explore?status=running",     desc: "En ce moment" },
+  { label: "À venir",        Icon: Clock,    href: "/explore?status=not_started", desc: "Prochains matchs" },
+  { label: "Équipes",        Icon: Users,    href: "/teams",                      desc: "Toutes les équipes" },
+  { label: "Tournois",       Icon: Trophy,   href: "/tournaments",                desc: "Toutes les compétitions" },
 ];
 
 // ─── Helper DTO match ────────────────────────────────────────────────────────
@@ -72,10 +73,13 @@ export default async function HomePage() {
         <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
           {QUICK_LINKS.map((link) => (
             <Link key={link.href} href={link.href}
-              className="flex flex-col items-center gap-1.5 p-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] transition-colors text-center">
-              <span className="text-2xl">{link.icon}</span>
-              <p className="text-xs font-medium text-white">{link.label}</p>
-              <p className="text-xs text-[var(--muted)] hidden sm:block">{link.desc}</p>
+              className="flex flex-col items-center gap-2 p-3 rounded-xl border transition-colors text-center"
+              style={{ border: "1px solid var(--border)", backgroundColor: "var(--surface)" }}>
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: "rgba(124,58,237,0.1)", color: "var(--primary)" }}>
+                <link.Icon size={16} />
+              </div>
+              <p className="text-xs font-medium" style={{ color: "var(--text)" }}>{link.label}</p>
+              <p className="text-xs hidden sm:block" style={{ color: "var(--muted)" }}>{link.desc}</p>
             </Link>
           ))}
         </div>
@@ -102,7 +106,7 @@ export default async function HomePage() {
         {/* ── MATCHS À VENIR ───────────────────────────────────────────────── */}
         <section>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-white">⏳ Prochains matchs</h2>
+            <h2 className="text-lg font-semibold" style={{ color: "var(--text)" }}>Prochains matchs</h2>
             <Link href="/explore?status=not_started" className="text-sm text-[var(--primary)] hover:underline">Voir tout →</Link>
           </div>
           {upcomingMatches.length === 0 ? (
@@ -125,7 +129,7 @@ export default async function HomePage() {
         {topCompetitions.length > 0 && (
           <section>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-white">🏆 Compétitions populaires</h2>
+              <h2 className="text-lg font-semibold" style={{ color: "var(--text)" }}>Compétitions populaires</h2>
               <Link href="/tournaments" className="text-sm text-[var(--primary)] hover:underline">Voir tout →</Link>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -155,7 +159,7 @@ export default async function HomePage() {
         {topTeams.length > 0 && (
           <section>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-white">👥 Équipes populaires</h2>
+              <h2 className="text-lg font-semibold" style={{ color: "var(--text)" }}>Équipes populaires</h2>
               <Link href="/teams" className="text-sm text-[var(--primary)] hover:underline">Voir tout →</Link>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
