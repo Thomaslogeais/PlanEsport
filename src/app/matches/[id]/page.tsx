@@ -1,115 +1,116 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
-import Image from "next/image";
 import { getMatchById } from "@/lib/db/matches";
-import StatusBadge from "@/components/ui/StatusBadge";
-import { formatDateTime } from "@/lib/utils/date";
+import MatchDetailHeader from "@/components/matches/MatchDetailHeader";
+import MatchContextCard from "@/components/matches/MatchContextCard";
+import MatchStreams from "@/components/matches/MatchStreams";
+import MatchGameResults from "@/components/matches/MatchGameResults";
 
 type Props = { params: Promise<{ id: string }> };
+
+// ─── Metadata ────────────────────────────────────────────────────────────────
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const m = await getMatchById(id);
-  return { title: m ? (m.name ?? "Match") : "Introuvable" };
+  if (!m) return { title: "Match introuvable" };
+  const teams = m.teams.map((t) => t.team.name).join(" vs ");
+  return { title: teams || m.name || "Match" };
 }
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function MatchDetailPage({ params }: Props) {
   const { id } = await params;
   const m = await getMatchById(id);
   if (!m) notFound();
 
-  const streams = Array.isArray(m.streams) ? m.streams as { raw_url?: string; language?: string; main?: boolean }[] : [];
+  const isDev = process.env.NODE_ENV !== "production";
+
+  // ── Données pour MatchDetailHeader ──────────────────────────────────────────
+  const teams = m.teams.map((mt) => ({
+    id: mt.team.id,
+    name: mt.team.name,
+    slug: mt.team.slug,
+    imageUrl: mt.team.imageUrl,
+    score: mt.score,
+    isWinner: mt.isWinner,
+  }));
+
+  // ── Données pour MatchContextCard ────────────────────────────────────────────
+  const tournamentForCtx = m.tournament
+    ? {
+        id: m.tournament.id,
+        slug: m.tournament.slug,
+        name: m.tournament.name,
+        status: m.tournament.status,
+        bracket: m.tournament.bracket ?? null,
+        competition: {
+          id: m.tournament.competition.id,
+          slug: m.tournament.competition.slug,
+          name: m.tournament.competition.name,
+          game: m.tournament.competition.game ?? m.game,
+        },
+      }
+    : null;
+
+  // ── Données pour MatchGameResults ────────────────────────────────────────────
+  const teamsForGames = m.teams.map((mt) => ({ team: { id: mt.team.id, name: mt.team.name } }));
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       {/* Breadcrumb */}
-      <div className="text-sm text-[var(--muted)] mb-6">
-        <Link href="/matches" className="hover:text-white transition-colors">Matchs</Link>
+      <nav className="text-sm text-[var(--muted)] mb-6">
+        <Link href="/matches" className="hover:text-white transition-colors">
+          Matchs
+        </Link>
         {" / "}
-        <span className="text-white">{m.name ?? "Match"}</span>
-      </div>
+        <span className="text-white">
+          {teams.length >= 2
+            ? `${teams[0].name} vs ${teams[1].name}`
+            : (m.name ?? "Match")}
+        </span>
+      </nav>
 
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8 gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-white mb-1">{m.name ?? "Match sans titre"}</h1>
-          <p className="text-sm text-[var(--muted)]">{formatDateTime(m.scheduledAt?.toISOString())}</p>
-        </div>
-        <StatusBadge status={m.status} />
-      </div>
+      {/* ── 1. Header : équipes, score, BO, date ─────────────────────────── */}
+      <MatchDetailHeader
+        name={m.name}
+        status={m.status}
+        scheduledAt={m.scheduledAt}
+        teams={teams}
+        rawJson={m.rawJson}
+      />
 
-      {/* Context */}
-      <div className="p-4 rounded-lg bg-[var(--surface)] border border-[var(--border)] mb-6 text-sm">
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <p className="text-[var(--muted)] text-xs mb-1">Jeu</p>
-            <p className="text-white">{m.game.name}</p>
-          </div>
-          <div>
-            <p className="text-[var(--muted)] text-xs mb-1">Compétition</p>
-            <p className="text-white">{m.tournament.competition.name}</p>
-          </div>
-          <div className="col-span-2">
-            <p className="text-[var(--muted)] text-xs mb-1">Tournoi</p>
-            <Link href={`/tournaments/${m.tournament.slug}`}
-              className="text-[var(--primary)] hover:underline">
-              {m.tournament.name}
-            </Link>
-          </div>
-        </div>
-      </div>
+      {/* ── 2. Contexte : jeu / compétition / tournoi / bracket ──────────── */}
+      <MatchContextCard
+        game={m.game}
+        tournament={tournamentForCtx}
+      />
 
-      {/* Teams & Scores */}
-      {m.teams.length === 2 && (() => {
-        const [t1, t2] = m.teams;
-        return (
-          <div className="p-6 rounded-lg bg-[var(--surface)] border border-[var(--border)] mb-6">
-            <div className="flex items-center justify-around gap-4">
-              {[t1, t2].map((t) => (
-                <div key={t.team.id} className={`flex flex-col items-center gap-2 text-center ${t.isWinner ? "opacity-100" : "opacity-70"}`}>
-                  {t.team.imageUrl ? (
-                    <Image src={t.team.imageUrl} alt={t.team.name} width={48} height={48}
-                      className="rounded object-contain bg-zinc-800" />
-                  ) : (
-                    <span className="w-12 h-12 rounded bg-zinc-700 flex items-center justify-center text-sm font-bold text-zinc-300">
-                      {t.team.name.slice(0, 2).toUpperCase()}
-                    </span>
-                  )}
-                  <p className={`text-sm font-semibold ${t.isWinner ? "text-white" : "text-[var(--muted)]"}`}>{t.team.name}</p>
-                  {t.isWinner && (
-                    <span className="inline-flex items-center gap-1 text-xs" style={{ color: "#f59e0b" }}>
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                      Vainqueur
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-            {(t1.score !== null || t2.score !== null) && (
-              <div className="text-center mt-4">
-                <span className="text-3xl font-bold text-white">
-                  {t1.score ?? "—"} <span className="text-[var(--muted)] text-xl">—</span> {t2.score ?? "—"}
-                </span>
-              </div>
-            )}
-          </div>
-        );
-      })()}
+      {/* ── 3. Résultats par game / map ───────────────────────────────────── */}
+      <MatchGameResults
+        status={m.status}
+        rawJson={m.rawJson}
+        teams={teamsForGames}
+      />
 
-      {/* Streams */}
-      {streams.length > 0 && (
-        <div className="p-4 rounded-lg bg-[var(--surface)] border border-[var(--border)]">
-          <h2 className="text-sm font-semibold text-white mb-3">Streams</h2>
-          <div className="flex flex-wrap gap-2">
-            {streams.map((s, i) => s.raw_url && (
-              <a key={i} href={s.raw_url} target="_blank" rel="noopener noreferrer"
-                className="px-3 py-1.5 rounded bg-zinc-700 hover:bg-zinc-600 text-sm text-white transition-colors">
-                {s.main ? "🔴 Officiel" : s.language?.toUpperCase() ?? "Stream"}
-              </a>
-            ))}
-          </div>
-        </div>
+      {/* ── 4. Streams ───────────────────────────────────────────────────── */}
+      <MatchStreams
+        streams={m.streams}
+        rawJson={m.rawJson}
+      />
+
+      {/* ── 5. Debug JSON — dev uniquement ───────────────────────────────── */}
+      {isDev && m.rawJson && (
+        <details className="mt-4">
+          <summary className="text-[10px] text-[var(--muted)] cursor-pointer hover:text-white transition-colors select-none">
+            ▸ Debug rawJson (dev uniquement)
+          </summary>
+          <pre className="mt-2 text-[10px] text-[var(--muted)] bg-[var(--bg)] rounded p-3 overflow-auto max-h-80 leading-relaxed border border-[var(--border)]">
+            {JSON.stringify(m.rawJson, null, 2)}
+          </pre>
+        </details>
       )}
     </div>
   );

@@ -137,7 +137,7 @@ export default async function TournamentDetailPage({ params }: Props) {
       )}
 
       {/* Section Bracket */}
-      <div className="mt-2">
+      <div id="bracket" className="mt-2">
         <h2 className="text-lg font-semibold text-white mb-4">Bracket</h2>
 
         {hasBracket && bracketRawJson ? (

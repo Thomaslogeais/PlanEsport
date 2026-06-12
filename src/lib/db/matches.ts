@@ -138,8 +138,6 @@ export async function countMatches(filters: MatchFilters = {}) {
  * Inclut rawJson uniquement hors production.
  */
 export async function getMatchById(id: string) {
-  const isDev = process.env.NODE_ENV !== "production";
-
   return prisma.match.findUnique({
     where: { id },
     select: {
@@ -151,9 +149,9 @@ export async function getMatchById(id: string) {
       scheduledAt: true,
       results: true,
       streams: true,
+      rawJson: true,
       createdAt: true,
       updatedAt: true,
-      ...(isDev && { rawJson: true }),
       game: {
         select: { id: true, slug: true, name: true, imageUrl: true },
       },
@@ -165,12 +163,14 @@ export async function getMatchById(id: string) {
           status: true,
           startDate: true,
           endDate: true,
+          bracket: { select: { id: true } },
           competition: {
             select: {
               id: true,
               slug: true,
               name: true,
               imageUrl: true,
+              game: { select: { slug: true, name: true } },
             },
           },
         },
