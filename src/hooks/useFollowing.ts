@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useSession } from "next-auth/react";
 
 /**
- * Hook de gestion des suivis utilisateur (localStorage MVP)
- * Stocke les équipes et compétitions suivies localement
+ * Hook de gestion des suivis utilisateur.
  *
- * TODO (Étape auth) : remplacer par un appel API avec User + FollowPreference en BDD
+ * - Non connecté : localStorage uniquement (rétrocompat)
+ * - Connecté     : API /api/following (BDD Neon)
  */
 
 export type FollowableEntity = {
@@ -17,7 +18,7 @@ export type FollowableEntity = {
   gameSlug?: string;
 };
 
-const STORAGE_KEY = "matchpulse:following";
+const STORAGE_KEY = "planesport:following";
 
 function loadFromStorage(): FollowableEntity[] {
   if (typeof window === "undefined") return [];
@@ -35,40 +36,88 @@ function saveToStorage(items: FollowableEntity[]): void {
 }
 
 export function useFollowing() {
+  const { data: session, status } = useSession();
+  const isAuth = status === "authenticated";
+
   const [following, setFollowing] = useState<FollowableEntity[]>([]);
   const [isHydrated, setIsHydrated] = useState(false);
 
+  // Chargement initial
   useEffect(() => {
-    setFollowing(loadFromStorage());
-    setIsHydrated(true);
-  }, []);
+    if (status === "loading") return;
+
+    if (isAuth) {
+      // Charger depuis la BDD
+      fetch("/api/following")
+        .then((r) => r.json())
+        .then((data) => {
+          const items: FollowableEntity[] = (data.followings ?? []).map(
+            (f: { entityType: string; entityId: string; entityName: string; entitySlug: string; gameSlug?: string }) => ({
+              type: f.entityType as FollowableEntity["type"],
+              id: f.entityId,
+              name: f.entityName,
+              slug: f.entitySlug,
+              gameSlug: f.gameSlug ?? undefined,
+            })
+          );
+          setFollowing(items);
+          setIsHydrated(true);
+        })
+        .catch(() => setIsHydrated(true));
+    } else {
+      // Charger depuis localStorage
+      setFollowing(loadFromStorage());
+      setIsHydrated(true);
+    }
+  }, [status, isAuth]);
 
   const isFollowing = useCallback(
-    (type: FollowableEntity["type"], id: string): boolean => {
-      return following.some((f) => f.type === type && f.id === id);
-    },
+    (type: FollowableEntity["type"], id: string): boolean =>
+      following.some((f) => f.type === type && f.id === id),
     [following]
   );
 
-  const follow = useCallback((entity: FollowableEntity): void => {
-    setFollowing((prev) => {
-      const exists = prev.some((f) => f.type === entity.type && f.id === entity.id);
-      if (exists) return prev;
-      const next = [...prev, entity];
-      saveToStorage(next);
-      return next;
-    });
-  }, []);
+  const follow = useCallback(
+    (entity: FollowableEntity): void => {
+      const exists = following.some((f) => f.type === entity.type && f.id === entity.id);
+      if (exists) return;
+
+      const next = [...following, entity];
+      setFollowing(next);
+
+      if (isAuth) {
+        fetch("/api/following", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            entityType: entity.type,
+            entityId: entity.id,
+            entityName: entity.name,
+            entitySlug: entity.slug,
+            gameSlug: entity.gameSlug,
+          }),
+        }).catch(console.error);
+      } else {
+        saveToStorage(next);
+      }
+    },
+    [following, isAuth]
+  );
 
   const unfollow = useCallback(
     (type: FollowableEntity["type"], id: string): void => {
-      setFollowing((prev) => {
-        const next = prev.filter((f) => !(f.type === type && f.id === id));
+      const next = following.filter((f) => !(f.type === type && f.id === id));
+      setFollowing(next);
+
+      if (isAuth) {
+        fetch(`/api/following?entityType=${type}&entityId=${encodeURIComponent(id)}`, {
+          method: "DELETE",
+        }).catch(console.error);
+      } else {
         saveToStorage(next);
-        return next;
-      });
+      }
     },
-    []
+    [following, isAuth]
   );
 
   const toggle = useCallback(
@@ -82,17 +131,16 @@ export function useFollowing() {
     [isFollowing, follow, unfollow]
   );
 
-  const followedTeams = following.filter((f) => f.type === "team");
-  const followedCompetitions = following.filter((f) => f.type === "competition");
-
   return {
     following,
-    followedTeams,
-    followedCompetitions,
+    followedTeams: following.filter((f) => f.type === "team"),
+    followedCompetitions: following.filter((f) => f.type === "competition"),
     isFollowing,
     follow,
     unfollow,
     toggle,
     isHydrated,
+    isAuth,
+    session,
   };
 }

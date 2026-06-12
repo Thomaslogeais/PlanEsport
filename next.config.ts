@@ -9,6 +9,11 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       { protocol: "https", hostname: "**.pandascore.co" },
       { protocol: "https", hostname: "static-cdn.jtvnw.net" },
+      // Avatars Google
+      { protocol: "https", hostname: "lh3.googleusercontent.com" },
+      // Avatars Discord
+      { protocol: "https", hostname: "cdn.discordapp.com" },
+      { protocol: "https", hostname: "avatars.githubusercontent.com" },
     ],
   },
 };

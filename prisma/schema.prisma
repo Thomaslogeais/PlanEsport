@@ -1,5 +1,5 @@
 // =============================================================================
-// PlanE — Prisma Schema
+// PlanEsport — Prisma Schema
 // =============================================================================
 
 generator client {
@@ -12,12 +12,97 @@ datasource db {
 }
 
 // =============================================================================
+// AUTH — NextAuth.js v5 (tables requises par @auth/prisma-adapter)
+// =============================================================================
+model User {
+  id            String          @id @default(cuid())
+  name          String?
+  email         String?         @unique
+  emailVerified DateTime?
+  image         String?
+
+  accounts      Account[]
+  sessions      Session[]
+  followings    UserFollowing[]
+
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@map("users")
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+  @@map("verification_tokens")
+}
+
+// =============================================================================
+// USER FOLLOWING — Équipes / compétitions / tournois suivis
+// =============================================================================
+model UserFollowing {
+  id         String   @id @default(cuid())
+
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  entityType String   // "team" | "competition" | "tournament" | "game"
+  entityId   String
+  entityName String
+  entitySlug String
+  gameSlug   String?
+
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, entityType, entityId])
+  @@map("user_followings")
+}
+
+// =============================================================================
 // GAME
-// Jeux supportés : League of Legends, Valorant, Rocket League (extensible)
 // =============================================================================
 model Game {
   id           String        @id @default(cuid())
-  slug         String        @unique // "lol" | "valorant" | "rocket-league"
+  slug         String        @unique
   name         String
   imageUrl     String?
 
@@ -33,14 +118,13 @@ model Game {
 
 // =============================================================================
 // COMPETITION
-// Ligue / circuit régulier : LEC, LFL, VCT EMEA, RLCS, etc.
 // =============================================================================
 model Competition {
   id           String       @id @default(cuid())
-  providerName String       // "pandascore"
+  providerName String
   providerId   String
   name         String
-  slug         String       // scopé par jeu : @@unique([gameId, slug])
+  slug         String
   imageUrl     String?
 
   gameId       String
@@ -58,14 +142,13 @@ model Competition {
 
 // =============================================================================
 // TOURNAMENT
-// Édition spécifique : LEC Summer 2026, VCT EMEA Stage 1, etc.
 // =============================================================================
 model Tournament {
   id           String    @id @default(cuid())
-  providerName String    // "pandascore"
+  providerName String
   providerId   String
   name         String
-  slug         String    // scopé par compétition : @@unique([competitionId, slug])
+  slug         String
   imageUrl     String?
 
   competitionId String
@@ -73,8 +156,8 @@ model Tournament {
 
   startDate    DateTime?
   endDate      DateTime?
-  status       String    // "not_started" | "ongoing" | "finished"
-  rawJson      Json?     // JSON brut PandaScore pour debug et normalisation
+  status       String
+  rawJson      Json?
 
   matches      Match[]
   bracket      Bracket?
@@ -89,11 +172,10 @@ model Tournament {
 
 // =============================================================================
 // BRACKET
-// JSON brut du bracket d'un tournoi, stocké séparément pour préserver l'info
 // =============================================================================
 model Bracket {
   id           String     @id @default(cuid())
-  providerName String     // "pandascore"
+  providerName String
   providerId   String
 
   tournamentId String     @unique
@@ -110,11 +192,10 @@ model Bracket {
 
 // =============================================================================
 // TEAM
-// Équipe rattachée à un jeu (slug unique par jeu)
 // =============================================================================
 model Team {
   id           String      @id @default(cuid())
-  providerName String      // "pandascore"
+  providerName String
   providerId   String
   name         String
   slug         String
@@ -135,15 +216,14 @@ model Team {
 
 // =============================================================================
 // MATCH
-// Match précis lié à un tournoi et un jeu
 // =============================================================================
 model Match {
   id           String      @id @default(cuid())
-  providerName String      // "pandascore"
+  providerName String
   providerId   String
   name         String?
   scheduledAt  DateTime?
-  status       String      // "not_started" | "running" | "finished" | "canceled"
+  status       String
 
   gameId       String
   game         Game        @relation(fields: [gameId], references: [id])
@@ -151,9 +231,9 @@ model Match {
   tournamentId String
   tournament   Tournament  @relation(fields: [tournamentId], references: [id])
 
-  results      Json?       // Résultats bruts
-  streams      Json?       // Liens de stream
-  rawJson      Json?       // JSON brut PandaScore pour debug et normalisation
+  results      Json?
+  streams      Json?
+  rawJson      Json?
 
   teams        MatchTeam[]
 
@@ -166,7 +246,6 @@ model Match {
 
 // =============================================================================
 // MATCH_TEAM
-// Relation entre un match et les équipes participantes
 // =============================================================================
 model MatchTeam {
   id       String  @id @default(cuid())
@@ -186,13 +265,12 @@ model MatchTeam {
 
 // =============================================================================
 // SYNC_LOG
-// Historique des synchronisations avec les providers externes
 // =============================================================================
 model SyncLog {
   id           String    @id @default(cuid())
-  providerName String    // "pandascore"
-  syncType     String    // "matches" | "tournaments" | "teams" | "competitions" | "full"
-  status       String    // "success" | "error" | "partial"
+  providerName String
+  syncType     String
+  status       String
   startedAt    DateTime
   endedAt      DateTime?
   message      String?
@@ -204,9 +282,3 @@ model SyncLog {
 
   @@map("sync_logs")
 }
-
-// =============================================================================
-// Modèles réservés pour l'étape auth (à implémenter ultérieurement)
-// =============================================================================
-// model User { ... }
-// model FollowPreference { ... }
