@@ -51,3 +51,37 @@ export async function getTeamBySlug(slug: string) {
     },
   });
 }
+
+/**
+ * Statistiques agrégées pour une équipe.
+ * Toutes les requêtes sont parallèles pour minimiser la latence.
+ */
+export async function getTeamStats(teamId: string) {
+  // TODO: À terme, ajouter Organization pour regrouper les équipes multi-jeux
+  // comme Karmine Corp, Vitality, Gentle Mates.
+  // Pour l'instant, cette page représente une Team liée à un seul jeu.
+
+  const [wins, upcoming, finished] = await Promise.all([
+    prisma.matchTeam.count({
+      where: { teamId, isWinner: true },
+    }),
+    prisma.match.count({
+      where: {
+        teams: { some: { teamId } },
+        status: { in: ["not_started", "running"] },
+      },
+    }),
+    prisma.match.count({
+      where: {
+        teams: { some: { teamId } },
+        status: "finished",
+      },
+    }),
+  ]);
+
+  const losses = finished - wins;
+  const winrate =
+    finished > 0 ? Math.round((wins / finished) * 100) : null;
+
+  return { wins, losses, upcoming, finished, winrate };
+}

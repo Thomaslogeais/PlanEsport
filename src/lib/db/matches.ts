@@ -17,6 +17,7 @@ export type MatchFilters = {
   to?: Date | null;          // scheduledAt <= to
   limit?: number;
   offset?: number;
+  orderDir?: "asc" | "desc"; // default "asc"
 };
 
 // Select partagé pour les listes (pas de rawJson)
@@ -61,6 +62,7 @@ export async function getMatches(filters: MatchFilters = {}) {
     to,
     limit = 50,
     offset = 0,
+    orderDir = "asc",
   } = filters;
 
   // Clause scheduledAt
@@ -88,7 +90,7 @@ export async function getMatches(filters: MatchFilters = {}) {
       }),
     },
     include: matchListInclude,
-    orderBy: { scheduledAt: "asc" },
+    orderBy: { scheduledAt: orderDir },
     skip: offset,
     take: limit,
   });
