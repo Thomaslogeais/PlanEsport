@@ -5,6 +5,8 @@ import { formatDate } from "@/lib/utils/date";
 export type TournamentCardDTO = {
   id: string; name: string; slug: string; status: string;
   imageUrl: string | null; startDate: string | null; endDate: string | null;
+  /** Optionnel — affiche un badge si true */
+  hasBracket?: boolean;
   competition: { id: string; slug: string; name: string; imageUrl?: string | null; game: { slug: string; name: string } };
 };
 
@@ -17,7 +19,14 @@ export default function TournamentCard({ tournament: t }: { tournament: Tourname
           <p className="text-xs text-[var(--muted)] mb-1">{t.competition.game.name} · {t.competition.name}</p>
           <h3 className="font-semibold text-white text-sm truncate">{t.name}</h3>
         </div>
-        <StatusBadge status={t.status} className="shrink-0" />
+        <div className="flex items-center gap-2 shrink-0">
+          {t.hasBracket && (
+            <span className="text-[10px] font-medium text-green-400 border border-green-400/30 rounded px-1.5 py-0.5 bg-green-400/5">
+              Bracket
+            </span>
+          )}
+          <StatusBadge status={t.status} />
+        </div>
       </div>
       <p className="text-xs text-[var(--muted)] mt-3">
         {formatDate(t.startDate)} — {formatDate(t.endDate)}

@@ -5,6 +5,7 @@ import { getTournamentBySlug } from "@/lib/db/tournaments";
 import MatchCard from "@/components/matches/MatchCard";
 import StatusBadge from "@/components/ui/StatusBadge";
 import EmptyState from "@/components/ui/EmptyState";
+import { BracketViewer } from "@/components/tournaments/BracketViewer";
 import { formatDate } from "@/lib/utils/date";
 
 type Props = { params: Promise<{ slug: string }> };
@@ -34,6 +35,10 @@ export default async function TournamentDetailPage({ params }: Props) {
       imageUrl: mt.team.imageUrl, score: mt.score, isWinner: mt.isWinner,
     })),
   }));
+
+  const hasBracket = !!t.bracket;
+  const bracketRawJson = t.bracket?.rawJson as Record<string, unknown> | null ?? null;
+  const bracketUpdatedAt = t.bracket?.updatedAt?.toISOString();
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -67,12 +72,14 @@ export default async function TournamentDetailPage({ params }: Props) {
           <p className="text-[var(--muted)] text-xs mb-1">Matchs</p>
           <p className="text-white">{t.matches.length}</p>
         </div>
-        {t.bracket && (
-          <div>
-            <p className="text-[var(--muted)] text-xs mb-1">Bracket</p>
-            <span className="text-green-400 text-xs">✓ Disponible</span>
-          </div>
-        )}
+        <div>
+          <p className="text-[var(--muted)] text-xs mb-1">Bracket</p>
+          {hasBracket ? (
+            <span className="text-green-400 text-xs font-medium">✓ Disponible</span>
+          ) : (
+            <span className="text-[var(--muted)] text-xs">Non disponible</span>
+          )}
+        </div>
       </div>
 
       {/* Match list */}
@@ -80,10 +87,35 @@ export default async function TournamentDetailPage({ params }: Props) {
       {matches.length === 0 ? (
         <EmptyState title="Aucun match pour ce tournoi" />
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 mb-10">
           {matches.map((m) => <MatchCard key={m.id} match={m} />)}
         </div>
       )}
+
+      {/* Section Bracket */}
+      <div className="mt-2">
+        <h2 className="text-lg font-semibold text-white mb-4">Bracket</h2>
+
+        {hasBracket && bracketRawJson ? (
+          <BracketViewer
+            rawJson={bracketRawJson}
+            updatedAt={bracketUpdatedAt}
+          />
+        ) : matches.length > 0 ? (
+          /* Tournoi avec matchs mais sans bracket */
+          <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-6 text-center">
+            <p className="text-sm text-[var(--muted)]">
+              Bracket non disponible pour ce tournoi.
+            </p>
+            <p className="text-xs text-[var(--muted)] mt-1">
+              Les matchs sont visibles ci-dessus.
+            </p>
+          </div>
+        ) : (
+          /* Tournoi vide sans bracket */
+          <EmptyState title="Aucun bracket ni match disponible" />
+        )}
+      </div>
     </div>
   );
 }
