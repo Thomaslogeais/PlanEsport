@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { ChevronDown, X, Gamepad2, Trophy, Users, Calendar, Zap } from "lucide-react";
+import { X } from "lucide-react";
 
 type FacetItem  = { slug?: string; value?: string; id?: string; name: string; count: number; label?: string };
 type FacetsData = {
@@ -15,16 +15,32 @@ type FacetsData = {
   periods: { value: string; label: string }[];
 };
 
-// ── Pill simple ──────────────────────────────────────────────────────────────
-function Pill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+// ── Pill avec hover ──────────────────────────────────────────────────────────
+function Pill({
+  label, active, color, onClick,
+}: {
+  label: string;
+  active: boolean;
+  color?: string;  // couleur custom pour statut
+  onClick: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+
+  const bg    = active ? (color ?? "var(--primary)") : hovered ? "var(--surface-hover)" : "var(--surface-2)";
+  const fg    = active ? "#fff" : hovered ? "var(--text)" : "var(--muted-light)";
+  const border= active ? (color ?? "var(--primary)") : hovered ? "var(--primary)" : "var(--border)";
+
   return (
     <button
       onClick={onClick}
-      className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap"
       style={{
-        backgroundColor: active ? "var(--primary)" : "var(--surface-2)",
-        color: active ? "#fff" : "var(--muted-light)",
-        border: `1px solid ${active ? "var(--primary)" : "var(--border)"}`,
+        backgroundColor: bg,
+        color: fg,
+        border: `1px solid ${border}`,
+        transition: "background-color 120ms, color 120ms, border-color 120ms",
       }}
     >
       {label}
@@ -32,88 +48,18 @@ function Pill({ label, active, onClick }: { label: string; active: boolean; onCl
   );
 }
 
-// ── Dropdown avec pills internes ─────────────────────────────────────────────
-function FilterDropdown({
-  icon: Icon,
-  label,
-  value,
-  items,
-  onSelect,
-  onClear,
-}: {
-  icon: React.ElementType;
-  label: string;
-  value: string;
-  items: { key: string; name: string }[];
-  onSelect: (v: string) => void;
-  onClear: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const active = !!value;
-  const selected = items.find((i) => i.key === value);
-
-  // Ferme au clic extérieur
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap"
-        style={{
-          backgroundColor: active ? "var(--primary)" : "var(--surface-2)",
-          color: active ? "#fff" : "var(--muted-light)",
-          border: `1px solid ${active ? "var(--primary)" : "var(--border)"}`,
-        }}
-      >
-        <Icon size={11} />
-        {active ? selected?.name ?? label : label}
-        {active ? (
-          <span
-            onClick={(e) => { e.stopPropagation(); onClear(); setOpen(false); }}
-            className="ml-0.5 rounded-full p-0.5 transition-colors"
-            style={{ color: active ? "rgba(255,255,255,0.7)" : "var(--muted)" }}
-          >
-            <X size={10} />
-          </span>
-        ) : (
-          <ChevronDown size={10} className={`transition-transform ${open ? "rotate-180" : ""}`} />
-        )}
-      </button>
-
-      {open && (
-        <div
-          className="absolute top-full mt-2 left-0 z-50 rounded-xl p-3 min-w-[200px] max-w-[280px] max-h-[260px] overflow-y-auto shadow-lg"
-          style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}
-        >
-          <div className="flex flex-wrap gap-1.5">
-            {items.map((item) => (
-              <button
-                key={item.key}
-                onClick={() => { onSelect(item.key); setOpen(false); }}
-                className="px-2.5 py-1 rounded-full text-xs transition-all"
-                style={{
-                  backgroundColor: value === item.key ? "var(--primary)" : "var(--surface-2)",
-                  color: value === item.key ? "#fff" : "var(--muted-light)",
-                  border: `1px solid ${value === item.key ? "var(--primary)" : "var(--border)"}`,
-                }}
-              >
-                {item.name}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+// ── Select stylisé (sans emoji) ──────────────────────────────────────────────
+const selectCls: React.CSSProperties = {
+  backgroundColor: "var(--surface-2)",
+  border: "1px solid var(--border)",
+  color: "var(--text)",
+  borderRadius: "0.5rem",
+  padding: "0.375rem 0.75rem",
+  fontSize: "0.8125rem",
+  cursor: "pointer",
+  minWidth: 150,
+  outline: "none",
+};
 
 // ── Component principal ───────────────────────────────────────────────────────
 export default function ExploreFilters() {
@@ -163,13 +109,15 @@ export default function ExploreFilters() {
     return (
       <div className="flex flex-wrap gap-2 mb-6">
         {[80, 100, 70, 90, 80].map((w, i) => (
-          <div key={i} className="h-7 rounded-full animate-pulse" style={{ width: w, backgroundColor: "var(--surface-2)", border: "1px solid var(--border)" }} />
+          <div key={i} className="h-7 rounded-full animate-pulse"
+            style={{ width: w, backgroundColor: "var(--surface-2)", border: "1px solid var(--border)" }} />
         ))}
       </div>
     );
   }
   if (!facets) return null;
 
+  // Couleurs par statut
   const statusColors: Record<string, string> = {
     running:     "#ef4444",
     not_started: "#7c3aed",
@@ -179,13 +127,14 @@ export default function ExploreFilters() {
 
   return (
     <div className="mb-6 space-y-3">
-      {/* ── Ligne 1 : Jeux + Statut + Période ─────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-2">
 
-        {/* Jeux — pills directes */}
+      {/* ── Ligne 1 : Pills (listes courtes) ──────────────────────────────── */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+
+        {/* Jeux */}
         {facets.games.length > 0 && (
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-xs mr-1" style={{ color: "var(--muted)" }}>Jeu</span>
+            <span className="text-xs shrink-0" style={{ color: "var(--muted)" }}>Jeu</span>
             {facets.games.map((g) => (
               <Pill key={g.slug} label={g.name} active={game === g.slug}
                 onClick={() => setFilter("game", game === g.slug ? "" : g.slug)} />
@@ -193,73 +142,88 @@ export default function ExploreFilters() {
           </div>
         )}
 
-        <div className="w-px h-5 mx-1" style={{ backgroundColor: "var(--border)" }} />
+        {/* Séparateur */}
+        {facets.statuses.length > 0 && <div className="w-px h-5 shrink-0" style={{ backgroundColor: "var(--border)" }} />}
 
-        {/* Statut — pills avec couleur */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-xs mr-1" style={{ color: "var(--muted)" }}>Statut</span>
-          {facets.statuses.map((s) => (
-            <button key={s.value} onClick={() => setFilter("status", status === s.value ? "" : s.value)}
-              className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap"
-              style={{
-                backgroundColor: status === s.value ? (statusColors[s.value] ?? "var(--primary)") : "var(--surface-2)",
-                color: status === s.value ? "#fff" : "var(--muted-light)",
-                border: `1px solid ${status === s.value ? (statusColors[s.value] ?? "var(--primary)") : "var(--border)"}`,
-              }}>
-              {s.label}
-            </button>
-          ))}
-        </div>
+        {/* Statut */}
+        {facets.statuses.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-xs shrink-0" style={{ color: "var(--muted)" }}>Statut</span>
+            {facets.statuses.map((s) => (
+              <Pill key={s.value} label={s.label} active={status === s.value}
+                color={statusColors[s.value]}
+                onClick={() => setFilter("status", status === s.value ? "" : s.value)} />
+            ))}
+          </div>
+        )}
 
-        <div className="w-px h-5 mx-1" style={{ backgroundColor: "var(--border)" }} />
+        {/* Séparateur */}
+        {facets.periods.length > 0 && <div className="w-px h-5 shrink-0" style={{ backgroundColor: "var(--border)" }} />}
 
-        {/* Période — pills */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-xs mr-1" style={{ color: "var(--muted)" }}>Période</span>
-          {facets.periods.map((p) => (
-            <Pill key={p.value} label={p.label} active={period === p.value}
-              onClick={() => setFilter("period", period === p.value ? "" : p.value)} />
-          ))}
-        </div>
+        {/* Période */}
+        {facets.periods.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-xs shrink-0" style={{ color: "var(--muted)" }}>Période</span>
+            {facets.periods.map((p) => (
+              <Pill key={p.value} label={p.label} active={period === p.value}
+                onClick={() => setFilter("period", period === p.value ? "" : p.value)} />
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* ── Ligne 2 : Dropdowns pour listes longues ──────────────────────── */}
+      {/* ── Ligne 2 : Selects (listes longues) ────────────────────────────── */}
       {(facets.competitions.length > 0 || facets.teams.length > 0) && (
         <div className="flex flex-wrap items-center gap-2">
+
+          {/* Compétition */}
           {facets.competitions.length > 0 && (
-            <FilterDropdown
-              icon={Trophy}
-              label="Compétition"
+            <select
               value={competition}
-              items={facets.competitions.map((c) => ({ key: c.slug, name: c.name }))}
-              onSelect={(v) => setFilter("competition", v)}
-              onClear={() => setFilter("competition", "")}
-            />
+              onChange={(e) => setFilter("competition", e.target.value)}
+              style={selectCls}
+            >
+              <option value="">Toutes les compétitions</option>
+              {facets.competitions.map((c) => (
+                <option key={c.id} value={c.slug}>{c.name}</option>
+              ))}
+            </select>
           )}
+
+          {/* Équipe */}
           {facets.teams.length > 0 && (
-            <FilterDropdown
-              icon={Users}
-              label="Équipe"
+            <select
               value={team}
-              items={facets.teams.map((t) => ({ key: t.slug, name: t.name }))}
-              onSelect={(v) => setFilter("team", v)}
-              onClear={() => setFilter("team", "")}
-            />
+              onChange={(e) => setFilter("team", e.target.value)}
+              style={selectCls}
+            >
+              <option value="">Toutes les équipes</option>
+              {facets.teams.map((t) => (
+                <option key={t.id} value={t.slug}>{t.name}</option>
+              ))}
+            </select>
           )}
+
+          {/* Tournoi (visible uniquement si une compétition est sélectionnée) */}
           {competition && facets.tournaments.length > 0 && (
-            <FilterDropdown
-              icon={Calendar}
-              label="Tournoi"
+            <select
               value={tournament}
-              items={facets.tournaments.map((t) => ({ key: t.slug, name: t.name }))}
-              onSelect={(v) => setFilter("tournament", v)}
-              onClear={() => setFilter("tournament", "")}
-            />
+              onChange={(e) => setFilter("tournament", e.target.value)}
+              style={selectCls}
+            >
+              <option value="">Tous les tournois</option>
+              {facets.tournaments.map((t) => (
+                <option key={t.id} value={t.slug}>{t.name}</option>
+              ))}
+            </select>
           )}
+
           {hasFilters && (
-            <button onClick={reset}
+            <button
+              onClick={reset}
               className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs transition-colors"
-              style={{ color: "var(--muted)", border: "1px solid var(--border)" }}>
+              style={{ color: "var(--muted)", border: "1px solid var(--border)" }}
+            >
               <X size={10} />
               Réinitialiser
             </button>
@@ -267,7 +231,7 @@ export default function ExploreFilters() {
         </div>
       )}
 
-      {/* ── Filtres actifs (badges) ───────────────────────────────────────── */}
+      {/* ── Filtres actifs ────────────────────────────────────────────────── */}
       {hasFilters && (
         <div className="flex flex-wrap gap-1.5 pt-1">
           {game        && <ActiveBadge label={facets.games.find(g => g.slug === game)?.name ?? game} onRemove={() => setFilter("game", "")} />}
@@ -287,7 +251,7 @@ function ActiveBadge({ label, onRemove }: { label: string; onRemove: () => void 
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
       style={{ backgroundColor: "rgba(124,58,237,0.15)", color: "var(--primary)", border: "1px solid rgba(124,58,237,0.3)" }}>
       {label}
-      <button onClick={onRemove} className="ml-0.5 transition-opacity hover:opacity-100 opacity-60">
+      <button onClick={onRemove} className="ml-0.5 opacity-60 hover:opacity-100 transition-opacity">
         <X size={10} />
       </button>
     </span>
