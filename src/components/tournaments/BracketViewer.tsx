@@ -199,15 +199,37 @@ function parseBracket(rawJson: Record<string, unknown>): ParsedBracket {
 
 // ─── Sous-composants ─────────────────────────────────────────────────────────
 
+/** Couleur du badge statut */
+function statusColor(status: string | undefined): string {
+  switch (status) {
+    case "running":  return "text-red-400";
+    case "finished": return "text-green-400";
+    default:         return "text-[var(--muted)]";
+  }
+}
+
+/** Label lisible du statut */
+function statusLabel(status: string | undefined): string | null {
+  switch (status) {
+    case "running":  return "En cours";
+    case "finished": return "Terminé";
+    case "not_started": return null; // ne pas afficher
+    default: return null;
+  }
+}
+
 function MatchBlock({ match }: { match: BracketMatch }) {
   const opponents = match.opponents ?? [];
   const hasOpponents = opponents.some((o) => o.opponent?.name || o.opponent?.acronym);
+  const label = statusLabel(match.status);
 
   return (
     <div className="rounded border border-[var(--border)] bg-[var(--bg)] p-2 min-w-[150px] text-xs">
-      {/* Statut */}
-      {match.status && match.status !== "not_started" && (
-        <p className="text-[10px] text-[var(--muted)] mb-1 capitalize">{match.status}</p>
+      {/* Statut visible uniquement si running/finished */}
+      {label && (
+        <p className={`text-[10px] mb-1 font-medium ${statusColor(match.status)}`}>
+          {label}
+        </p>
       )}
       {/* Équipes */}
       {hasOpponents ? (
@@ -219,24 +241,26 @@ function MatchBlock({ match }: { match: BracketMatch }) {
             }`}
           >
             <span className="truncate max-w-[100px]">
-              {opp.opponent?.acronym ?? opp.opponent?.name ?? "TBD"}
+              {opp.opponent?.acronym ?? opp.opponent?.name ?? "À déterminer"}
             </span>
             {opp.score != null && (
-              <span className="shrink-0 font-mono text-[11px]">{opp.score}</span>
+              <span className={`shrink-0 font-mono text-[11px] ${opp.winner ? "text-white" : ""}`}>
+                {opp.score}
+              </span>
             )}
           </div>
         ))
       ) : (
         <>
-          <div className="text-[var(--muted)] py-0.5">TBD</div>
-          <div className="text-[var(--muted)] py-0.5">TBD</div>
+          <div className="text-[var(--muted)] py-0.5 italic text-[11px]">À déterminer</div>
+          <div className="text-[var(--muted)] py-0.5 italic text-[11px]">À déterminer</div>
         </>
       )}
-      {/* Date si disponible */}
+      {/* Date */}
       {match.scheduled_at && (
-        <p className="text-[9px] text-[var(--muted)] mt-1 border-t border-[var(--border)] pt-1">
+        <p className="text-[9px] text-[var(--muted)] mt-1.5 border-t border-[var(--border)] pt-1">
           {new Date(match.scheduled_at).toLocaleDateString("fr-FR", {
-            day: "numeric", month: "short",
+            weekday: "short", day: "numeric", month: "short",
           })}
         </p>
       )}

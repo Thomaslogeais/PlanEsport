@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
       imageUrl: t.imageUrl,
       startDate: t.startDate?.toISOString() ?? null,
       endDate: t.endDate?.toISOString() ?? null,
+      hasBracket: !!t.bracket,
       competition: {
         id: t.competition.id,
         slug: t.competition.slug,

@@ -104,7 +104,7 @@ async function upsertCompetition(
     select: { id: true },
   });
 
-  existing ? counts.updated++ : counts.created++;
+  if (existing) { counts.updated++; } else { counts.created++; }
   return record.id;
 }
 
@@ -149,7 +149,7 @@ async function upsertTournament(
       select: { id: true },
     });
 
-    existing ? counts.updated++ : counts.created++;
+    if (existing) { counts.updated++; } else { counts.created++; }
     return record.id;
   } catch (err) {
     // Conflit de slug unique → réessai avec slug suffixé par providerId
@@ -221,7 +221,7 @@ async function upsertTeam(
     select: { id: true },
   });
 
-  existing ? counts.updated++ : counts.created++;
+  if (existing) { counts.updated++; } else { counts.created++; }
   return record.id;
 }
 
@@ -266,7 +266,7 @@ async function upsertMatch(
     select: { id: true },
   });
 
-  existing ? counts.updated++ : counts.created++;
+  if (existing) { counts.updated++; } else { counts.created++; }
   return record.id;
 }
 
@@ -290,7 +290,7 @@ async function upsertMatchTeam(
     update: { isWinner, score },
   });
 
-  existing ? counts.updated++ : counts.created++;
+  if (existing) { counts.updated++; } else { counts.created++; }
 }
 
 // ─── Helpers SyncLog ──────────────────────────────────────────────────────────

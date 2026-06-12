@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Info } from "lucide-react";
 import { getTournamentBySlug } from "@/lib/db/tournaments";
 import MatchCard from "@/components/matches/MatchCard";
 import StatusBadge from "@/components/ui/StatusBadge";
@@ -9,6 +10,48 @@ import { BracketViewer } from "@/components/tournaments/BracketViewer";
 import { formatDate } from "@/lib/utils/date";
 
 type Props = { params: Promise<{ slug: string }> };
+
+// ─── Helper ───────────────────────────────────────────────────────────────────
+
+/**
+ * Retourne true si le bracket existe et que tous les matchs ont des équipes TBD.
+ * Gère les structures inconnues sans crasher — retourne false par défaut.
+ */
+function isBracketAllTBD(rawJson: unknown): boolean {
+  try {
+    // Guard : doit être un tableau non-vide
+    if (!Array.isArray(rawJson) || rawJson.length === 0) return false;
+
+    // Chaque élément doit ressembler à un match avec opponents
+    return rawJson.every((item) => {
+      // Guard : doit être un objet
+      if (typeof item !== "object" || item === null) return false;
+
+      const match = item as Record<string, unknown>;
+      const opponents = match.opponents;
+
+      // Si pas d'opponents du tout → TBD
+      if (!Array.isArray(opponents)) return true;
+      if (opponents.length === 0) return true;
+
+      // Si au moins un opponent a un nom → pas TBD
+      return opponents.every((opp) => {
+        if (typeof opp !== "object" || opp === null) return true;
+        const o = opp as Record<string, unknown>;
+        const inner = o.opponent;
+        if (typeof inner !== "object" || inner === null) return true;
+        const name = (inner as Record<string, unknown>).name;
+        const acronym = (inner as Record<string, unknown>).acronym;
+        return !name && !acronym;
+      });
+    });
+  } catch {
+    // Ne jamais crasher la page
+    return false;
+  }
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
@@ -39,6 +82,7 @@ export default async function TournamentDetailPage({ params }: Props) {
   const hasBracket = !!t.bracket;
   const bracketRawJson = t.bracket?.rawJson as Record<string, unknown> | null ?? null;
   const bracketUpdatedAt = t.bracket?.updatedAt?.toISOString();
+  const bracketAllTBD = hasBracket && isBracketAllTBD(bracketRawJson);
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -97,10 +141,21 @@ export default async function TournamentDetailPage({ params }: Props) {
         <h2 className="text-lg font-semibold text-white mb-4">Bracket</h2>
 
         {hasBracket && bracketRawJson ? (
-          <BracketViewer
-            rawJson={bracketRawJson}
-            updatedAt={bracketUpdatedAt}
-          />
+          <>
+            {/* Message discret si toutes les équipes sont TBD */}
+            {bracketAllTBD && (
+              <div className="flex items-center gap-2 text-xs text-[var(--muted)] mb-3 px-1">
+                <Info size={13} className="shrink-0 text-blue-400" />
+                <span>
+                  Le bracket est disponible, mais certaines équipes ne sont pas encore qualifiées.
+                </span>
+              </div>
+            )}
+            <BracketViewer
+              rawJson={bracketRawJson}
+              updatedAt={bracketUpdatedAt}
+            />
+          </>
         ) : matches.length > 0 ? (
           /* Tournoi avec matchs mais sans bracket */
           <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-6 text-center">

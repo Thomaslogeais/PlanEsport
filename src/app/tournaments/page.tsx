@@ -32,6 +32,7 @@ export default async function TournamentsPage({ searchParams }: { searchParams: 
     imageUrl: t.imageUrl,
     startDate: t.startDate?.toISOString() ?? null,
     endDate:   t.endDate?.toISOString()   ?? null,
+    hasBracket: !!t.bracket,
     competition: {
       id: t.competition.id, slug: t.competition.slug,
       name: t.competition.name, imageUrl: t.competition.imageUrl,

@@ -27,6 +27,7 @@ export async function getTournaments(filters: {
     },
     include: {
       competition: { include: { game: true } },
+      bracket: { select: { id: true } },
     },
     orderBy: { startDate: "desc" },
     skip: (page - 1) * limit,
