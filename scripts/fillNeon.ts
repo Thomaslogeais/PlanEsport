@@ -63,10 +63,40 @@ async function main() {
   const { syncBracketsForRecentAndUpcomingTournaments } = await import(
     "@/lib/sync/syncBrackets"
   );
+  const { prisma } = await import("@/lib/db/prisma");
 
   const GAMES = ["league-of-legends", "valorant", "rocket-league"] as const;
 
   console.log("\n=== MatchPulse — Remplissage initial de Neon ===\n");
+
+  // ── STEP A : seed des jeux (idempotent) ──────────────────────────────────
+  console.log("[seed] Upsert des jeux de base...");
+  const MVP_GAMES = [
+    {
+      slug: "league-of-legends",
+      name: "League of Legends",
+      imageUrl: "https://static-cdn.jtvnw.net/ttv-boxart/League_of_Legends-144x192.jpg",
+    },
+    {
+      slug: "valorant",
+      name: "Valorant",
+      imageUrl: "https://static-cdn.jtvnw.net/ttv-boxart/Valorant-144x192.jpg",
+    },
+    {
+      slug: "rocket-league",
+      name: "Rocket League",
+      imageUrl: "https://static-cdn.jtvnw.net/ttv-boxart/Rocket_League-144x192.jpg",
+    },
+  ];
+  for (const g of MVP_GAMES) {
+    await prisma.game.upsert({
+      where: { slug: g.slug },
+      update: { name: g.name, imageUrl: g.imageUrl },
+      create: g,
+    });
+    console.log(`  ✓ ${g.name}`);
+  }
+  console.log("[seed] ✓ Jeux OK\n");
 
   // Sync matchs + équipes + tournois
   for (const game of GAMES) {
