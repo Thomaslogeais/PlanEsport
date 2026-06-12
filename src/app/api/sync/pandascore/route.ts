@@ -7,23 +7,29 @@
  *   - Query   : ?secret=<SYNC_SECRET>
  *
  * Paramètres :
- *   ?game=league-of-legends  (seul jeu supporté au MVP)
+ *   ?game=league-of-legends  → sync LoL uniquement
+ *   ?game=valorant           → sync Valorant uniquement
+ *   ?game=rocket-league      → sync Rocket League uniquement
+ *   ?game=all                → sync séquentielle des 3 jeux
  *
  * Exemples :
- *   curl -X POST "http://localhost:3000/api/sync/pandascore?game=league-of-legends&secret=dev-secret"
+ *   curl -X POST "http://localhost:3000/api/sync/pandascore?game=valorant&secret=dev-secret"
+ *   curl -X POST "http://localhost:3000/api/sync/pandascore?game=all&secret=dev-secret"
  *   curl -X POST "http://localhost:3000/api/sync/pandascore?game=league-of-legends" \
  *        -H "x-sync-secret: dev-secret"
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { syncLeagueOfLegendsMatches } from "@/lib/sync/syncLoL";
+import { syncGameMatches, type SyncResult } from "@/lib/sync/syncGame";
+import { PANDASCORE_GAME_SLUGS } from "@/lib/providers/pandascore/client";
 
-// Jeux supportés dans cette route (MVP = LoL uniquement)
-const SUPPORTED_GAMES = ["league-of-legends"] as const;
-type SupportedGame = (typeof SUPPORTED_GAMES)[number];
+// Jeux disponibles — source unique : PANDASCORE_GAME_SLUGS
+const SYNC_GAMES = Object.keys(PANDASCORE_GAME_SLUGS) as Array<
+  keyof typeof PANDASCORE_GAME_SLUGS
+>;
 
-function isSupportedGame(value: string | null): value is SupportedGame {
-  return SUPPORTED_GAMES.includes(value as SupportedGame);
+function isSupportedGame(value: string): value is keyof typeof PANDASCORE_GAME_SLUGS {
+  return SYNC_GAMES.includes(value as keyof typeof PANDASCORE_GAME_SLUGS);
 }
 
 export async function POST(request: NextRequest) {
@@ -53,36 +59,59 @@ export async function POST(request: NextRequest) {
       {
         ok: false,
         error: "Paramètre 'game' manquant.",
-        supported: SUPPORTED_GAMES,
+        supported: [...SYNC_GAMES, "all"],
         example: "/api/sync/pandascore?game=league-of-legends",
       },
       { status: 400 }
     );
   }
 
+  // ─── game=all : sync séquentielle de tous les jeux ────────────────────────
+  if (game === "all") {
+    const results: Record<string, SyncResult | { ok: false; errors: string[] }> = {};
+
+    for (const gameSlug of SYNC_GAMES) {
+      try {
+        results[gameSlug] = await syncGameMatches(gameSlug);
+      } catch (err) {
+        results[gameSlug] = {
+          ok: false,
+          errors: [err instanceof Error ? err.message : String(err)],
+        };
+      }
+    }
+
+    // ok global = true seulement si tous les jeux ont réussi
+    const allOk = Object.values(results).every((r) => r.ok);
+
+    return NextResponse.json(
+      {
+        ok: allOk,
+        ...(allOk ? {} : { status: "partial" }),
+        provider: "pandascore",
+        games: results,
+      },
+      { status: allOk ? 200 : 207 }
+    );
+  }
+
+  // ─── game=<slug> : sync d'un jeu spécifique ───────────────────────────────
   if (!isSupportedGame(game)) {
     return NextResponse.json(
       {
         ok: false,
-        error: `Jeu '${game}' non supporté dans cette version.`,
-        supported: SUPPORTED_GAMES,
+        error: `Jeu '${game}' non supporté.`,
+        supported: [...SYNC_GAMES, "all"],
       },
       { status: 400 }
     );
   }
 
-  // ─── Lancement de la sync ─────────────────────────────────────────────────
   try {
-    let result;
-
-    if (game === "league-of-legends") {
-      result = await syncLeagueOfLegendsMatches();
-    }
-
-    return NextResponse.json(result, { status: result?.ok ? 200 : 500 });
+    const result = await syncGameMatches(game);
+    return NextResponse.json(result, { status: result.ok ? 200 : 500 });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-
     return NextResponse.json(
       {
         ok: false,

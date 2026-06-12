@@ -1,15 +1,26 @@
 /**
- * Synchronisation des matchs depuis PandaScore vers la BDD
- * TODO (Étape 2) : implémenter l'upsert complet avec SyncLog
+ * Wrappers nommés pour la synchronisation des matchs par jeu.
+ * Chaque fonction appelle simplement syncGameMatches avec le bon slug.
  *
- * Stratégie :
- * 1. Récupérer les matchs via lib/providers/pandascore/matches.ts
- * 2. Normaliser avec lib/normalizers/match.normalizer.ts
- * 3. Upsert en BDD sur (providerName, providerId)
- * 4. Upsert les MatchTeam associés
- * 5. Logger le résultat dans SyncLog
+ * Pour ajouter un nouveau jeu :
+ *  1. Ajouter son slug dans PANDASCORE_GAME_SLUGS (client.ts)
+ *  2. Ajouter un wrapper ici
+ *  3. L'ajouter dans SYNC_GAMES de la route /api/sync/pandascore
  */
 
-export async function syncMatches(_gameSlug: string): Promise<void> {
-  throw new Error("syncMatches — à implémenter (Étape 2)");
+import { syncGameMatches } from "./syncGame";
+
+export { syncGameMatches };
+export type { SyncResult, SyncSummary } from "./syncGame";
+
+export async function syncLeagueOfLegendsMatches() {
+  return syncGameMatches("league-of-legends");
+}
+
+export async function syncValorantMatches() {
+  return syncGameMatches("valorant");
+}
+
+export async function syncRocketLeagueMatches() {
+  return syncGameMatches("rocket-league");
 }
