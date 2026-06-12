@@ -27,17 +27,26 @@ if (existsSync(".env.local")) {
   dotenv.config({ path: ".env.local" });
 }
 
-const neonUrl = process.env.NEON_DATABASE_URL;
+// Priorité :
+//   1. NEON_DATABASE_URL  (variable dédiée, n'écrase pas DATABASE_URL local)
+//   2. DATABASE_URL       (si c'est déjà une URL Neon, on l'utilise directement)
+const neonUrl =
+  process.env.NEON_DATABASE_URL ||
+  (process.env.DATABASE_URL?.includes("neon.tech")
+    ? process.env.DATABASE_URL
+    : undefined);
 
 if (!neonUrl) {
   console.error(`
-❌ NEON_DATABASE_URL n'est pas défini.
+❌ Aucune URL Neon trouvée.
 
-   Ajoute cette ligne dans .env.local :
-   NEON_DATABASE_URL=postgresql://user:pass@ep-xxx.eu-west-2.aws.neon.tech/neondb?sslmode=require
+   Option 1 — Ajoute dans .env.local :
+     NEON_DATABASE_URL=<ta neon url>
 
-   → Récupère l'URL dans : https://console.neon.tech
-     ou : Vercel dashboard → Settings → Environment Variables → DATABASE_URL
+   Option 2 — Si DATABASE_URL dans .env.local est déjà l'URL Neon, c'est ok.
+
+   → Récupère l'URL : Vercel dashboard → Settings → Env Vars → DATABASE_URL
+     ou : https://console.neon.tech → ton projet → Connection string
   `);
   process.exit(1);
 }
