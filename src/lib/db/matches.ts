@@ -68,15 +68,21 @@ export async function getMatches(filters: MatchFilters = {}) {
   if (from) scheduledAtFilter.gte = from;
   if (to) scheduledAtFilter.lte = to;
 
+  // Support valeurs multiples séparées par virgule
+  const gameSlugs   = gameSlug ? gameSlug.split(",").filter(Boolean)  : [];
+  const statuses    = status   ? status.split(",").filter(Boolean)     : [];
+
   return prisma.match.findMany({
     where: {
-      ...(gameSlug && { game: { slug: gameSlug } }),
+      ...(gameSlugs.length === 1 ? { game: { slug: gameSlugs[0] } }
+        : gameSlugs.length  > 1 ? { game: { slug: { in: gameSlugs } } } : {}),
       ...(teamSlug && { teams: { some: { team: { slug: teamSlug } } } }),
       ...(competitionSlug && {
         tournament: { competition: { slug: competitionSlug } },
       }),
       ...(tournamentSlug && { tournament: { slug: tournamentSlug } }),
-      ...(status && { status }),
+      ...(statuses.length === 1 ? { status: statuses[0] }
+        : statuses.length  > 1 ? { status: { in: statuses } } : {}),
       ...(Object.keys(scheduledAtFilter).length > 0 && {
         scheduledAt: scheduledAtFilter,
       }),
@@ -106,15 +112,20 @@ export async function countMatches(filters: MatchFilters = {}) {
   if (from) scheduledAtFilter.gte = from;
   if (to) scheduledAtFilter.lte = to;
 
+  const gameSlugs = gameSlug ? gameSlug.split(",").filter(Boolean) : [];
+  const statuses  = status   ? status.split(",").filter(Boolean)   : [];
+
   return prisma.match.count({
     where: {
-      ...(gameSlug && { game: { slug: gameSlug } }),
+      ...(gameSlugs.length === 1 ? { game: { slug: gameSlugs[0] } }
+        : gameSlugs.length  > 1 ? { game: { slug: { in: gameSlugs } } } : {}),
       ...(teamSlug && { teams: { some: { team: { slug: teamSlug } } } }),
       ...(competitionSlug && {
         tournament: { competition: { slug: competitionSlug } },
       }),
       ...(tournamentSlug && { tournament: { slug: tournamentSlug } }),
-      ...(status && { status }),
+      ...(statuses.length === 1 ? { status: statuses[0] }
+        : statuses.length  > 1 ? { status: { in: statuses } } : {}),
       ...(Object.keys(scheduledAtFilter).length > 0 && {
         scheduledAt: scheduledAtFilter,
       }),

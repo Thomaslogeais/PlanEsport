@@ -14,9 +14,12 @@ export type TeamFilters = {
 export async function getTeams(filters: TeamFilters = {}) {
   const { gameSlug, search, limit = 50, offset = 0 } = filters;
 
+  const gameSlugs = gameSlug ? gameSlug.split(",").filter(Boolean) : [];
+
   return prisma.team.findMany({
     where: {
-      ...(gameSlug && { game: { slug: gameSlug } }),
+      ...(gameSlugs.length === 1 ? { game: { slug: gameSlugs[0] } }
+        : gameSlugs.length  > 1 ? { game: { slug: { in: gameSlugs } } } : {}),
       ...(search && {
         name: { contains: search, mode: "insensitive" },
       }),

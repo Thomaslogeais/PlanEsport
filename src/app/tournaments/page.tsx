@@ -1,21 +1,27 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { getTournaments } from "@/lib/db/tournaments";
 import TournamentCard from "@/components/tournaments/TournamentCard";
-import Link from "next/link";
 import EmptyState from "@/components/ui/EmptyState";
+import PillGroup from "@/components/ui/PillGroup";
 
 export const metadata: Metadata = { title: "Tournois" };
 
 const GAMES = [
-  { slug: "league-of-legends", name: "League of Legends" },
-  { slug: "valorant", name: "Valorant" },
-  { slug: "rocket-league", name: "Rocket League" },
+  { value: "league-of-legends", label: "League of Legends" },
+  { value: "valorant",          label: "Valorant" },
+  { value: "rocket-league",     label: "Rocket League" },
+];
+const STATUSES = [
+  { value: "not_started", label: "À venir",  color: "#7c3aed" },
+  { value: "running",     label: "En cours",  color: "#ef4444" },
+  { value: "finished",    label: "Terminé",   color: "#6b7280" },
 ];
 
 type SP = Promise<{ game?: string; status?: string }>;
 
 export default async function TournamentsPage({ searchParams }: { searchParams: SP }) {
-  const sp = await searchParams;
+  const sp     = await searchParams;
   const game   = typeof sp.game   === "string" ? sp.game   : undefined;
   const status = typeof sp.status === "string" ? sp.status : undefined;
 
@@ -25,7 +31,7 @@ export default async function TournamentsPage({ searchParams }: { searchParams: 
     id: t.id, name: t.name, slug: t.slug, status: t.status,
     imageUrl: t.imageUrl,
     startDate: t.startDate?.toISOString() ?? null,
-    endDate: t.endDate?.toISOString() ?? null,
+    endDate:   t.endDate?.toISOString()   ?? null,
     competition: {
       id: t.competition.id, slug: t.competition.slug,
       name: t.competition.name, imageUrl: t.competition.imageUrl,
@@ -40,17 +46,13 @@ export default async function TournamentsPage({ searchParams }: { searchParams: 
         <span className="text-sm text-[var(--muted)]">{tournaments.length} tournois</span>
       </div>
 
-      {/* Filtres simples */}
-      <div className="flex flex-wrap gap-3 mb-6">
-        <Link href="/tournaments" className={`px-3 py-1.5 rounded text-sm border transition-colors ${!game ? "border-[var(--primary)] text-[var(--primary)]" : "border-[var(--border)] text-[var(--muted)] hover:text-white"}`}>
-          Tous
-        </Link>
-        {GAMES.map((g) => (
-          <Link key={g.slug} href={`/tournaments?game=${g.slug}`}
-            className={`px-3 py-1.5 rounded text-sm border transition-colors ${game === g.slug ? "border-[var(--primary)] text-[var(--primary)]" : "border-[var(--border)] text-[var(--muted)] hover:text-white"}`}>
-            {g.name}
-          </Link>
-        ))}
+      {/* Pills multi-select */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-6">
+        <Suspense>
+          <PillGroup paramKey="game"   label="Jeu"    options={GAMES} />
+          <div className="w-px h-5 shrink-0" style={{ backgroundColor: "var(--border)" }} />
+          <PillGroup paramKey="status" label="Statut" options={STATUSES} />
+        </Suspense>
       </div>
 
       {tournaments.length === 0 ? (

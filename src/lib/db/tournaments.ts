@@ -14,11 +14,16 @@ export async function getTournaments(filters: {
 } = {}) {
   const { gameSlug, competitionId, status, page = 1, limit = 20 } = filters;
 
+  const gameSlugs = gameSlug ? gameSlug.split(",").filter(Boolean) : [];
+  const statuses  = status   ? status.split(",").filter(Boolean)   : [];
+
   return prisma.tournament.findMany({
     where: {
-      ...(gameSlug && { competition: { game: { slug: gameSlug } } }),
+      ...(gameSlugs.length === 1 ? { competition: { game: { slug: gameSlugs[0] } } }
+        : gameSlugs.length  > 1 ? { competition: { game: { slug: { in: gameSlugs } } } } : {}),
       ...(competitionId && { competitionId }),
-      ...(status && { status }),
+      ...(statuses.length === 1 ? { status: statuses[0] }
+        : statuses.length  > 1 ? { status: { in: statuses } } : {}),
     },
     include: {
       competition: { include: { game: true } },

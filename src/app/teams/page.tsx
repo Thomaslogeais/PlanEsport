@@ -1,20 +1,23 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { getTeams } from "@/lib/db/teams";
 import EmptyState from "@/components/ui/EmptyState";
+import PillGroup from "@/components/ui/PillGroup";
+
 export const metadata: Metadata = { title: "Équipes" };
 
 const GAMES = [
-  { slug: "league-of-legends", name: "League of Legends" },
-  { slug: "valorant", name: "Valorant" },
-  { slug: "rocket-league", name: "Rocket League" },
+  { value: "league-of-legends", label: "League of Legends" },
+  { value: "valorant",          label: "Valorant" },
+  { value: "rocket-league",     label: "Rocket League" },
 ];
 
 type SP = Promise<{ game?: string; search?: string }>;
 
 export default async function TeamsPage({ searchParams }: { searchParams: SP }) {
-  const sp = await searchParams;
+  const sp     = await searchParams;
   const game   = typeof sp.game   === "string" ? sp.game   : undefined;
   const search = typeof sp.search === "string" ? sp.search : undefined;
 
@@ -27,17 +30,11 @@ export default async function TeamsPage({ searchParams }: { searchParams: SP }) 
         <span className="text-sm text-[var(--muted)]">{raw.length} équipes</span>
       </div>
 
-      {/* Filtres jeu */}
-      <div className="flex flex-wrap gap-3 mb-4">
-        <Link href="/teams" className={`px-3 py-1.5 rounded text-sm border transition-colors ${!game ? "border-[var(--primary)] text-[var(--primary)]" : "border-[var(--border)] text-[var(--muted)] hover:text-white"}`}>
-          Tous
-        </Link>
-        {GAMES.map((g) => (
-          <Link key={g.slug} href={`/teams?game=${g.slug}${search ? `&search=${search}` : ""}`}
-            className={`px-3 py-1.5 rounded text-sm border transition-colors ${game === g.slug ? "border-[var(--primary)] text-[var(--primary)]" : "border-[var(--border)] text-[var(--muted)] hover:text-white"}`}>
-            {g.name}
-          </Link>
-        ))}
+      {/* Pills multi-select */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-6">
+        <Suspense>
+          <PillGroup paramKey="game" label="Jeu" options={GAMES} />
+        </Suspense>
       </div>
 
       {raw.length === 0 ? (

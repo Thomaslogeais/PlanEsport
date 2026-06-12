@@ -9,10 +9,11 @@ export const metadata: Metadata = { title: "Matchs" };
 
 const LIMIT = 20;
 
+// game et status peuvent être comma-separated (multi-select)
 type SP = Promise<{ game?: string; status?: string; team?: string; offset?: string }>;
 
 export default async function MatchesPage({ searchParams }: { searchParams: SP }) {
-  const sp = await searchParams;
+  const sp     = await searchParams;
   const game   = typeof sp.game   === "string" ? sp.game   : undefined;
   const status = typeof sp.status === "string" ? sp.status : undefined;
   const team   = typeof sp.team   === "string" ? sp.team   : undefined;
@@ -38,10 +39,11 @@ export default async function MatchesPage({ searchParams }: { searchParams: SP }
     })),
   }));
 
+  // extraParams pour la pagination (préserve les valeurs comma-separated)
   const extraParams: Record<string, string> = {};
-  if (game) extraParams.game = game;
+  if (game)   extraParams.game   = game;
   if (status) extraParams.status = status;
-  if (team) extraParams.team = team;
+  if (team)   extraParams.team   = team;
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -50,7 +52,7 @@ export default async function MatchesPage({ searchParams }: { searchParams: SP }
         {total > 0 && <span className="text-sm text-[var(--muted)]">{total} résultats</span>}
       </div>
 
-      <MatchFilters current={{ game, status, team }} />
+      <MatchFilters />
 
       {matches.length === 0 ? (
         <EmptyState title="Aucun match trouvé" description="Essayez de modifier vos filtres ou revenez plus tard." />
